@@ -1,0 +1,79 @@
+plugins {
+    id 'java'
+    id 'war'
+}
+
+group = "org.abb_tech"
+version = "1.0.0"
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('jakartaVersion', '6.1.0-M2')
+    set('jUnitVersion', '5.10.2')
+    set("postgresVersion", "42.7.4")
+    set("hikariCPVersion", "6.2.1")
+}
+
+dependencies {
+
+    implementation group: 'com.zaxxer', name: 'HikariCP', version: "${hikariCPVersion}"
+    implementation group: 'org.postgresql', name: 'postgresql', version: "${postgresVersion}"
+
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+
+    testImplementation platform("org.junit:junit-bom:${jUnitVersion}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core:5.20.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.20.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    compileOnly group: 'jakarta.servlet', name: 'jakarta.servlet-api', version: "${jakartaVersion}"
+
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.named('war', War) {
+    archiveFileName.set("my-servlet-app.war")
+}
+
+ext {
+    tomcatHome = "C:\\Program Files\\Apache Software Foundation\\Tomcat 11.0"
+}
+
+def stopTomcat = tasks.register('stopTomcat', Exec) {
+    workingDir tomcatHome
+    commandLine "${tomcatHome}/bin/shutdown.bat"
+    ignoreExitValue = true
+}
+
+def copyWarToTomcat = tasks.register('copyWarToTomcat', Copy) {
+    dependsOn tasks.named('war')
+    from("$buildDir/libs")
+    include("my-servlet-app.war")
+    into("$tomcatHome/webapps")
+    mustRunAfter stopTomcat
+}
+
+def startTomcat = tasks.register('startTomcat', Exec) {
+    workingDir tomcatHome
+    commandLine "\"C:\\Program Files\\Apache Software Foundation\\Tomcat 11.0\\bin\\startup.bat\""
+    mustRunAfter copyWarToTomcat
+}
+
+tasks.register('deployToTomcat') {
+    dependsOn stopTomcat, copyWarToTomcat, startTomcat
+    doLast {
+        println "Deployment to Tomcat completed successfully!"
+    }
+}
